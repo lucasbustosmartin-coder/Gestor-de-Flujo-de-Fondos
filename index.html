@@ -23,6 +23,22 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex">
 
+  <!-- Pantalla de Login -->
+  <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-96">
+      <h2 class="text-2xl font-bold mb-6 text-center">Iniciar Sesión</h2>
+      <p class="text-sm text-gray-600 mb-4 text-center">Enviamos un enlace mágico a tu email</p>
+      <form id="formLogin">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Tu Email</label>
+          <input type="email" id="loginEmail" class="w-full border border-gray-300 rounded px-3 py-2" placeholder="tu@empresa.com" required />
+        </div>
+        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Enviar enlace mágico</button>
+      </form>
+      <p id="loginError" class="text-red-600 text-sm mt-2 hidden">Error al enviar el enlace</p>
+    </div>
+  </div>
+
   <!-- Menú Lateral -->
   <div class="sidebar bg-white shadow-sm flex flex-col p-4 h-screen fixed left-0 top-0 z-40">
     <div class="flex items-center mb-8">
@@ -305,20 +321,68 @@
         tipos_gasto: [],
         productos: [],
         medios: [],
-        transacciones: []
+        transacciones: [],
+        usuario: null
       };
 
-      // Aplicar configuración
-      function applyConfig() {
-        document.getElementById('headerTitle').textContent = state.config.nombre;
-        document.getElementById('headerLogo').src = state.config.logo;
-        document.getElementById('previewLogo').src = state.config.logo;
+      // Elementos del DOM
+      const loginScreen = document.getElementById('loginScreen');
+      const formLogin = document.getElementById('formLogin');
+      const loginError = document.getElementById('loginError');
+
+      // Verificar sesión al cargar
+      const {  session } = await supabaseClient.auth.getSession();
+
+      if (session) {
+        const {  userData } = await supabaseClient
+          .from('usuarios')
+          .select('*')
+          .eq('email', session.user.email)
+          .single();
+
+        if (userData) {
+          state.usuario = userData;
+          loginScreen.style.display = 'none';
+          await cargarDatos();
+        } else {
+          console.warn('Usuario no encontrado en la base de datos:', session.user.email);
+          await supabaseClient.auth.signOut();
+          loginScreen.style.display = 'flex';
+        }
+      } else {
+        loginScreen.style.display = 'flex';
       }
 
-      // ===== CARGA COMPLETA DE DATOS CON MANEJO DE ERRORES =====
+      // Enviar OTP
+      formLogin.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        loginError.classList.add('hidden');
+
+        const { error } = await supabaseClient.auth.signInWithOtp({ email });
+
+        if (error) {
+          loginError.classList.remove('hidden');
+          loginError.textContent = 'Error: ' + error.message;
+        } else {
+          loginError.classList.remove('hidden');
+          loginError.classList.add('text-green-600');
+          loginError.textContent = '¡Enlace enviado! Revisa tu email.';
+          setTimeout(() => loginScreen.style.display = 'none', 2000);
+        }
+      });
+
+      // ===== CARGA DE DATOS =====
       async function cargarDatos() {
         try {
-          const results = await Promise.all([
+          if (!state.usuario) {
+            alert('Usuario no autenticado. Volviendo al login.');
+            await supabaseClient.auth.signOut();
+            location.reload();
+            return;
+          }
+
+          const [{  config }, {  sucursales }, {  tipos_gasto }, {  productos }, {  medios }, {  transacciones }] = await Promise.all([
             supabaseClient.from('config').select('*').eq('id', 1),
             supabaseClient.from('sucursales').select('*'),
             supabaseClient.from('tipos_gasto').select('*'),
@@ -327,38 +391,42 @@
             supabaseClient.from('transacciones').select('*')
           ]);
 
-          // Extraer datos y errores
-          const [configResult, sucursalesResult, tiposGastoResult, productosResult, mediosResult, transaccionesResult] = results;
+          if (config && config[0]) state.config = config[0];
+          state.sucursales = sucursales || [];
+          state.tipos_gasto = tipos_gasto || [];
+          state.productos = productos || [];
+          state.medios = medios || [];
+          state.transacciones = transacciones || [];
 
-          if (configResult.error) throw new Error('config: ' + configResult.error.message);
-          if (sucursalesResult.error) throw new Error('sucursales: ' + sucursalesResult.error.message);
-          if (tiposGastoResult.error) throw new Error('tipos_gasto: ' + tiposGastoResult.error.message);
-          if (productosResult.error) throw new Error('productos: ' + productosResult.error.message);
-          if (mediosResult.error) throw new Error('medios: ' + mediosResult.error.message);
-          if (transaccionesResult.error) throw new Error('transacciones: ' + transaccionesResult.error.message);
-
-          // Aplicar datos
-          if (configResult.data && configResult.data[0]) state.config = configResult.data[0];
-          state.sucursales = sucursalesResult.data || [];
-          state.tipos_gasto = tiposGastoResult.data || [];
-          state.productos = productosResult.data || [];
-          state.medios = mediosResult.data || [];
-          state.transacciones = transaccionesResult.data || [];
+          if (state.usuario.rol === 'empleado' && state.usuario.sucursal_id) {
+            state.transacciones = state.transacciones.filter(t => t.sucursal_id == state.usuario.sucursal_id);
+          }
 
           applyConfig();
           renderSelects();
           renderTabla();
         } catch (error) {
           console.error('Error al cargar datos:', error);
-          alert('Error de carga: ' + error.message);
+          alert('Error al cargar los datos: ' + error.message);
         }
+      }
+
+      // Aplicar configuración
+      function applyConfig() {
+        document.getElementById('headerTitle').textContent = state.config.nombre;
+        document.getElementById('headerLogo').src = state.config.logo;
+        document.getElementById('previewLogo').src = state.config.logo;
       }
 
       // Renderizar selects
       function renderSelect(selectId, items, valueKey = 'id', textKey = 'nombre') {
         const select = document.getElementById(selectId);
         select.innerHTML = '<option value="">Seleccionar</option>';
-        items.forEach(item => {
+        const filteredItems = state.usuario.rol === 'empleado'
+          ? items.filter(i => i.id === state.usuario.sucursal_id)
+          : items;
+
+        filteredItems.forEach(item => {
           const opt = document.createElement('option');
           opt.value = item[valueKey];
           opt.textContent = item[textKey];
@@ -433,8 +501,12 @@
       function openModal(id) { document.getElementById(id).style.display = 'flex'; }
       function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-      // Config
+      // Config - Solo admin
       document.getElementById('btnConfig').addEventListener('click', async () => {
+        if (state.usuario.rol !== 'admin') {
+          alert('Acceso denegado. Solo el admin puede acceder.');
+          return;
+        }
         await cargarDatos();
         document.getElementById('configNombre').value = state.config.nombre;
         openModal('modalConfig');
@@ -466,8 +538,12 @@
         }
       });
 
-      // Sucursales
+      // Sucursales - Solo admin y gerente
       document.getElementById('btnSucursales').addEventListener('click', async () => {
+        if (state.usuario.rol === 'empleado') {
+          alert('Acceso denegado. Solo admin y gerente pueden gestionar sucursales.');
+          return;
+        }
         await cargarDatos();
         renderList('listaSucursales', state.sucursales, editarSucursal, eliminarSucursal);
         openModal('modalSucursales');
@@ -489,8 +565,12 @@
         }
       });
 
-      // Tipos de Gasto
+      // Tipos de Gasto - Solo admin y gerente
       document.getElementById('btnTiposGasto').addEventListener('click', async () => {
+        if (state.usuario.rol === 'empleado') {
+          alert('Acceso denegado. Solo admin y gerente pueden gestionar tipos de gasto.');
+          return;
+        }
         await cargarDatos();
         renderList('listaTiposGasto', state.tipos_gasto, editarTipoGasto, eliminarTipoGasto);
         openModal('modalTiposGasto');
@@ -512,8 +592,12 @@
         }
       });
 
-      // Productos
+      // Productos - Solo admin y gerente
       document.getElementById('btnProductos').addEventListener('click', async () => {
+        if (state.usuario.rol === 'empleado') {
+          alert('Acceso denegado. Solo admin y gerente pueden gestionar productos.');
+          return;
+        }
         await cargarDatos();
         renderList('listaProductos', state.productos, editarProducto, eliminarProducto);
         openModal('modalProductos');
@@ -563,6 +647,7 @@
 
       // Editar/Eliminar
       function editarSucursal(id) {
+        if (state.usuario.rol === 'empleado') return;
         const nombreActual = state.sucursales.find(s => s.id === id)?.nombre;
         const nuevoNombre = prompt('Nuevo nombre:', nombreActual);
         if (nuevoNombre && nuevoNombre.trim()) {
@@ -578,6 +663,7 @@
       }
 
       function eliminarSucursal(id) {
+        if (state.usuario.rol === 'empleado') return;
         if (confirm('¿Eliminar?')) {
           supabaseClient.from('sucursales').delete().eq('id', id).then(async ({ error }) => {
             if (!error) {
@@ -591,6 +677,7 @@
       }
 
       function editarTipoGasto(id) {
+        if (state.usuario.rol === 'empleado') return;
         const tipo = state.tipos_gasto.find(t => t.id === id);
         const nuevoNombre = prompt('Nuevo nombre:', tipo.nombre);
         if (nuevoNombre && nuevoNombre.trim()) {
@@ -606,6 +693,7 @@
       }
 
       function eliminarTipoGasto(id) {
+        if (state.usuario.rol === 'empleado') return;
         if (confirm('¿Eliminar?')) {
           supabaseClient.from('tipos_gasto').delete().eq('id', id).then(async ({ error }) => {
             if (!error) {
@@ -619,6 +707,7 @@
       }
 
       function editarProducto(id) {
+        if (state.usuario.rol === 'empleado') return;
         const prod = state.productos.find(p => p.id === id);
         const nuevoNombre = prompt('Nombre:', prod.nombre);
         const nuevoPrecio = prompt('Precio:', prod.precio);
@@ -635,6 +724,7 @@
       }
 
       function eliminarProducto(id) {
+        if (state.usuario.rol === 'empleado') return;
         if (confirm('¿Eliminar producto?')) {
           supabaseClient.from('productos').delete().eq('id', id).then(async ({ error }) => {
             if (!error) {
@@ -754,7 +844,11 @@
       document.getElementById('btnRefresh').addEventListener('click', cargarDatos);
 
       // Inicializar
-      await cargarDatos();
+      if (!session) {
+        loginScreen.style.display = 'flex';
+      } else {
+        await cargarDatos();
+      }
     };
   </script>
 </body>
