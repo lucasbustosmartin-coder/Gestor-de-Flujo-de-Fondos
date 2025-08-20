@@ -331,7 +331,7 @@
       const btnGoogleLogin = document.getElementById('btnGoogleLogin');
       const loginError = document.getElementById('loginError');
 
-      // Verificar sesión
+      // Verificar sesión inicial
       const {  session } = await supabaseClient.auth.getSession();
       if (session) {
         const {  userData } = await supabaseClient
@@ -349,6 +349,8 @@
           loginError.textContent = 'Usuario no autorizado. Contacta al administrador.';
           await supabaseClient.auth.signOut();
         }
+      } else {
+        loginScreen.style.display = 'flex';
       }
 
       // Login con Google
@@ -363,6 +365,31 @@
         if (error) {
           loginError.classList.remove('hidden');
           loginError.textContent = 'Error: ' + error.message;
+        }
+      });
+
+      // Escuchar cambios de autenticación
+      supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          const {  userData } = await supabaseClient
+            .from('usuarios')
+            .select('*')
+            .eq('email', session.user.email)
+            .single();
+
+          if (userData) {
+            state.usuario = userData;
+            loginScreen.style.display = 'none';
+            await cargarDatos();
+          } else {
+            alert('Usuario no autorizado. No estás registrado en el sistema.');
+            await supabaseClient.auth.signOut();
+          }
+        }
+
+        if (event === 'SIGNED_OUT') {
+          state.usuario = null;
+          loginScreen.style.display = 'flex';
         }
       });
 
@@ -836,13 +863,6 @@
       // Filtros
       document.getElementById('btnFiltrar').addEventListener('click', renderTabla);
       document.getElementById('btnRefresh').addEventListener('click', cargarDatos);
-
-      // Inicializar
-      if (!session) {
-        loginScreen.style.display = 'flex';
-      } else {
-        await cargarDatos();
-      }
     };
   </script>
 </body>
