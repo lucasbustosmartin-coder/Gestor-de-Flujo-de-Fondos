@@ -36,8 +36,8 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex">
 
-  <!-- BADGE DE VERSIÓN (siempre visible) -->
-  <div class="version-badge">v1.0.5</div>
+  <!-- BADGE DE VERSIÓN -->
+  <div class="version-badge">v1.0.6</div>
 
   <!-- Pantalla de Login -->
   <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
@@ -330,6 +330,7 @@
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
     script.async = false;
+
     script.onload = async () => {
       const { createClient } = supabase;
       const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -348,40 +349,72 @@
       const formLogin = document.getElementById('formLogin');
       const loginError = document.getElementById('loginError');
 
-      // Verificar sesión
-      try {
-        const {  session } = await supabaseClient.auth.getSession();
-        
-        if (session) {
-          const {  userData, error } = await supabaseClient
+      // === 🔐 Verificar sesión con manejo robusto ===
+      const verificarSesion = async () => {
+        try {
+          const {  session, error: authError } = await supabaseClient.auth.getSession();
+          
+          if (authError) {
+            console.error('Error de autenticación:', authError);
+            loginError.classList.remove('hidden');
+            loginError.textContent = 'Error de autenticación.';
+            loginScreen.style.display = 'flex';
+            return;
+          }
+
+          if (!session) {
+            loginScreen.style.display = 'flex';
+            return;
+          }
+
+          // Normalizar email para comparación
+          const emailAuth = session.user.email.toLowerCase().trim();
+
+          // Buscar en tabla `usuarios` con comparación insensible
+          const {  data: userData, error: userError } = await supabaseClient
             .from('usuarios')
             .select('*')
-            .eq('email', session.user.email)
+            .ilike('email', emailAuth)
             .single();
 
-          if (error || !userData) {
+          if (userError || !userData) {
+            console.log('Usuario no encontrado en tabla `usuarios`:', emailAuth);
             loginError.classList.remove('hidden');
             loginError.textContent = 'Usuario no autorizado. Contacta al admin.';
             await supabaseClient.auth.signOut();
             loginScreen.style.display = 'flex';
-          } else {
-            state.usuario = userData;
-            loginScreen.style.display = 'none';
-            await cargarDatos();
+            return;
           }
-        } else {
+
+          // ✅ Usuario autorizado
+          state.usuario = userData;
+          loginScreen.style.display = 'none';
+          await cargarDatos();
+        } catch (err) {
+          console.error('Error crítico:', err);
+          loginError.classList.remove('hidden');
+          loginError.textContent = 'Error interno. Recarga la página.';
           loginScreen.style.display = 'flex';
         }
-      } catch (err) {
-        loginError.classList.remove('hidden');
-        loginError.textContent = 'Error de conexión.';
-        loginScreen.style.display = 'flex';
-      }
+      };
+
+      // Ejecutar verificación al cargar
+      await verificarSesion();
+
+      // Escuchar cambios de autenticación
+      supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN') {
+          await verificarSesion();
+        } else if (event === 'SIGNED_OUT') {
+          loginScreen.style.display = 'flex';
+          state.usuario = null;
+        }
+      });
 
       // Formulario de login
       formLogin.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('loginEmail').value.trim();
+        const email = document.getElementById('loginEmail').value.trim().toLowerCase();
         const password = document.getElementById('loginPassword').value;
 
         loginError.classList.add('hidden');
@@ -394,10 +427,11 @@
           return;
         }
 
+        // Verificar usuario en tabla
         const {  userData, error: userError } = await supabaseClient
           .from('usuarios')
           .select('*')
-          .eq('email', data.session.user.email)
+          .ilike('email', email)
           .single();
 
         if (userError || !userData) {
