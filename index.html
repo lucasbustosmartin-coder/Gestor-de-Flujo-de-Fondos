@@ -19,9 +19,25 @@
     .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 50; }
     .btn-export { background: #10b981; color: white; }
     .btn-export:hover { background: #0d9668; }
+    .version-badge {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: #333;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      z-index: 1000;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex">
+
+  <!-- BADGE DE VERSIÓN (siempre visible) -->
+  <div class="version-badge">v1.0.5</div>
 
   <!-- Pantalla de Login -->
   <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
@@ -313,7 +329,7 @@
     // Cargar Supabase con garantía absoluta
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    script.async = false; // Asegura que se ejecute en orden
+    script.async = false;
     script.onload = async () => {
       const { createClient } = supabase;
       const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -848,7 +864,6 @@
       document.getElementById('btnRefresh').addEventListener('click', cargarDatos);
     };
 
-    // Asegurar que el script se cargue antes de cualquier ejecución
     document.head.appendChild(script);
   </script>
 </body>
