@@ -365,28 +365,36 @@
 
         loginError.classList.add('hidden');
 
-        const {  session, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
         if (error) {
           loginError.classList.remove('hidden');
           loginError.textContent = 'Error: ' + error.message;
-        } else {
-          const {  userData } = await supabaseClient
-            .from('usuarios')
-            .select('*')
-            .eq('email', session.user.email)
-            .single();
-
-          if (userData) {
-            state.usuario = userData;
-            loginScreen.style.display = 'none';
-            await cargarDatos();
-          } else {
-            loginError.classList.remove('hidden');
-            loginError.textContent = 'Usuario no autorizado. Contacta al admin.';
-            await supabaseClient.auth.signOut();
-          }
+          return;
         }
+
+        if (!data.session) {
+          loginError.classList.remove('hidden');
+          loginError.textContent = 'No se pudo crear la sesión.';
+          return;
+        }
+
+        const {  userData, error: userError } = await supabaseClient
+          .from('usuarios')
+          .select('*')
+          .eq('email', data.session.user.email)
+          .single();
+
+        if (userError || !userData) {
+          loginError.classList.remove('hidden');
+          loginError.textContent = 'Usuario no autorizado. Contacta al admin.';
+          await supabaseClient.auth.signOut();
+          return;
+        }
+
+        state.usuario = userData;
+        loginScreen.style.display = 'none';
+        await cargarDatos();
       });
 
       // ===== CARGA DE DATOS =====
