@@ -3,127 +3,183 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login Directo</title>
+  <title>Gestión Empanadas</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
     body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
-    .card { max-width: 400px; margin: 4rem auto; padding: 2rem; border-radius: 12px; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
-    .btn-primary { background: #3b82f6; color: white; }
-    .btn-primary:hover { background: #2563eb; }
-    .error { color: #e53e3e; font-size: 0.875rem; margin-top: 0.5rem; }
-    .debug { margin-top: 1rem; padding: 1rem; background: #000; color: #0f0; font-family: monospace; font-size: 0.75rem; white-space: pre-wrap; }
+    .login-container { 
+      display: flex; 
+      min-height: 100vh; 
+      align-items: center; 
+      justify-content: center; 
+      background: #f3f4f6; 
+    }
+    .card { 
+      width: 100%; 
+      max-width: 400px; 
+      padding: 2rem; 
+      border-radius: 12px; 
+      background: white; 
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+      text-align: center; 
+    }
+    .btn { 
+      display: block; 
+      width: 100%; 
+      padding: 0.75rem; 
+      border: none; 
+      border-radius: 6px; 
+      font-size: 1rem; 
+      cursor: pointer; 
+      background: #3b82f6; 
+      color: white; 
+    }
+    .btn:hover { background: #2563eb; }
+    .error { 
+      color: #e53e3e; 
+      font-size: 0.875rem; 
+      margin-top: 0.5rem; 
+    }
+    .debug { 
+      margin-top: 1rem; 
+      padding: 1rem; 
+      background: #000; 
+      color: #0f0; 
+      font-family: monospace; 
+      font-size: 0.75rem; 
+      white-space: pre-wrap; 
+      border-radius: 6px; 
+    }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <h1 class="text-2xl font-bold mb-6 text-center">Iniciar Sesión</h1>
-    <form id="formLogin">
-      <div class="mb-4">
-        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-        <input type="email" id="email" class="w-full border border-gray-300 rounded px-3 py-2" required />
-      </div>
-      <div class="mb-6">
-        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-        <input type="password" id="password" class="w-full border border-gray-300 rounded px-3 py-2" required />
-      </div>
-      <button type="submit" class="btn btn-primary">Iniciar sesión</button>
-      <p id="error" class="error hidden">Error</p>
-    </form>
-    <div class="debug" id="debug">Cargando...</div>
+  <div class="login-container">
+    <div class="card">
+      <h1 class="text-2xl font-bold mb-6">Iniciar Sesión</h1>
+      <p class="text-sm text-gray-600 mb-6">Usa tu email y contraseña de Supabase</p>
+      <form id="loginForm">
+        <div class="mb-4">
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input 
+            type="email" 
+            id="email" 
+            class="w-full border border-gray-300 rounded px-3 py-2" 
+            placeholder="tu@empresa.com" 
+            required 
+          />
+        </div>
+        <div class="mb-6">
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+          <input 
+            type="password" 
+            id="password" 
+            class="w-full border border-gray-300 rounded px-3 py-2" 
+            placeholder="••••••••" 
+            required 
+          />
+        </div>
+        <button type="submit" class="btn">Iniciar sesión</button>
+        <p id="error" class="error hidden">Error</p>
+      </form>
+      <div class="debug" id="debug">Cargando Supabase...</div>
+    </div>
   </div>
 
-  <!-- Cargar Supabase -->
   <script>
-    // === 🔑 Credenciales
+    // === 🔑 Credenciales Supabase
     const SUPABASE_URL = 'https://moeqgzezdraknwmheheu.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZXFnemV6ZHJha253bWhlaGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTY2MDgsImV4cCI6MjA3MDkzMjYwOH0.ZHIJjZv7izlaegfeypj8s6jNb0ls-LTrt914qhgO_uA';
 
-    // === 🔧 Cargar Supabase con garantía
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    script.async = true;
-    script.onload = async () => {
-      // ✅ Supabase está cargado
-      const { createClient } = supabase;
-      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
-      window.supabaseClient = supabaseClient; // Para depurar
-      document.getElementById('debug').textContent = '✅ Supabase cargado\n';
+    // === 🔧 Cargar Supabase con garantía absoluta
+    (function cargarSupabase() {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      script.onload = () => {
+        console.log('✅ Supabase script cargado');
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+        window.supabaseClient = supabaseClient;
 
-      // === 📝 Manejar login
-      const form = document.getElementById('formLogin');
-      const emailInput = document.getElementById('email');
-      const passwordInput = document.getElementById('password');
-      const errorEl = document.getElementById('error');
-      const debug = document.getElementById('debug');
+        const debug = document.getElementById('debug');
+        debug.textContent = '✅ Supabase cargado\n';
 
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        errorEl.classList.add('hidden');
+        const form = document.getElementById('loginForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const errorEl = document.getElementById('error');
 
-        const email = emailInput.value.trim();
-        const password = passwordInput.value;
-
-        debug.textContent += `\nIntentando login con: ${email}\n`;
-
-        try {
-          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-
-          if (error) {
-            errorEl.classList.remove('hidden');
-            errorEl.textContent = 'Error: ' + error.message;
-            debug.textContent += `❌ Error de login: ${error.message}\n`;
-            return;
+        // Verificar sesión al cargar
+        supabaseClient.auth.getSession().then(({  session }) => {
+          if (session) {
+            debug.textContent += `🟢 Sesión activa: ${session.user.email}\n`;
+          } else {
+            debug.textContent += `⚪ Sin sesión activa\n`;
           }
+        });
 
-          debug.textContent += `🟢 Sesión creada: ${data.session.user.email}\n`;
+        // Manejar login
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          debug.textContent += '\n=== Intentando login ===\n';
+          errorEl.classList.add('hidden');
 
-          // Verificar si está en tabla `usuarios`
-          const { data: userData, error: userError } = await supabaseClient
-            .from('usuarios')
-            .select('*')
-            .eq('email', data.session.user.email)
-            .single();
+          const email = emailInput.value.trim();
+          const password = passwordInput.value;
 
-          if (userError || !userData) {
-            await supabaseClient.auth.signOut();
+          debug.textContent += `📧 Email: ${email}\n`;
+
+          try {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+            if (error) {
+              debug.textContent += `❌ Error: ${error.message}\n`;
+              errorEl.classList.remove('hidden');
+              errorEl.textContent = 'Error: ' + error.message;
+              return;
+            }
+
+            debug.textContent += `🟢 Login exitoso: ${data.session.user.email}\n`;
+
+            // Verificar si el usuario está en la tabla `usuarios`
+            const {  userData, error: userError } = await supabaseClient
+              .from('usuarios')
+              .select('*')
+              .eq('email', data.session.user.email)
+              .single();
+
+            if (userError || !userData) {
+              debug.textContent += `❌ Usuario no autorizado en tabla 'usuarios'\n`;
+              await supabaseClient.auth.signOut();
+              errorEl.classList.remove('hidden');
+              errorEl.textContent = 'Usuario no autorizado. Contacta al admin.';
+              return;
+            }
+
+            debug.textContent += `✅ Autorizado: Rol = ${userData.rol}\n`;
+            debug.textContent += `🎉 ¡LOGIN EXITOSO!\n`;
+
+            // Simular redirección
+            setTimeout(() => {
+              alert('¡Login exitoso! Aquí cargaría la app principal.');
+              // location.href = '/dashboard.html';
+            }, 1000);
+
+          } catch (err) {
+            debug.textContent += `🚨 Error inesperado: ${err.message}\n`;
             errorEl.classList.remove('hidden');
-            errorEl.textContent = 'Usuario no autorizado. Contacta al admin.';
-            debug.textContent += `❌ No autorizado en tabla 'usuarios'\n`;
-            return;
+            errorEl.textContent = 'Error: ' + err.message;
           }
+        });
 
-          debug.textContent += `✅ Usuario autorizado: Rol = ${userData.rol}\n`;
-          debug.textContent += `🎉 ¡LOGIN EXITOSO! Redirigiendo...\n`;
-
-          // ✅ Guardar sesión y redirigir (simulado)
-          setTimeout(() => {
-            alert('¡Login exitoso! Aquí cargaría la app principal.');
-            // Aquí iría: location.href = '/dashboard.html';
-          }, 1000);
-
-        } catch (err) {
-          debug.textContent += `🚨 Error inesperado: ${err.message}\n`;
-          errorEl.classList.remove('hidden');
-          errorEl.textContent = 'Error inesperado: ' + err.message;
-        }
-      });
-
-      // Verificar sesión al cargar
-      const {  session } = await supabaseClient.auth.getSession();
-      if (session) {
-        debug.textContent += `🟢 Sesión activa: ${session.user.email}\n`;
-      } else {
-        debug.textContent += `⚪ Sin sesión activa\n`;
-      }
-    };
-
-    script.onerror = () => {
-      document.getElementById('debug').textContent = '❌ Error al cargar Supabase. Revisa la conexión.';
-    };
-
-    document.head.appendChild(script);
+      };
+      script.onerror = () => {
+        document.getElementById('debug').textContent = '❌ Error al cargar el script de Supabase. Revisa la conexión.';
+      };
+      document.head.appendChild(script);
+    })();
   </script>
 </body>
 </html>
