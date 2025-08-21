@@ -40,61 +40,68 @@
     <button id="btnSignOut" class="mt-4 bg-red-600 text-white px-4 py-2 rounded">Cerrar sesión</button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+    // === 🔑 Cargar Supabase y esperar a que esté listo ===
     const SUPABASE_URL = 'https://moeqgzezdraknwmheheu.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZXFnemV6ZHJha253bWhlaGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTY2MDgsImV4cCI6MjA3MDkzMjYwOH0.ZHIJjZv7izlaegfeypj8s6jNb0ls-LTrt914qhgO_uA';
-    const supabase = window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const loginScreen = document.getElementById('loginScreen');
-    const mainContent = document.getElementById('mainContent');
-    const formLogin = document.getElementById('formLogin');
-    const loginError = document.getElementById('loginError');
-    const btnSignOut = document.getElementById('btnSignOut');
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.onload = () => {
+      const { createClient } = supabase;
+      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Verificar sesión al cargar
-    async function checkSession() {
-      const {  session } = await supabase.auth.getSession();
-      
-      if (session) {
-        loginScreen.style.display = 'none';
-        mainContent.style.display = 'block';
-      } else {
-        loginScreen.style.display = 'flex';
+      const loginScreen = document.getElementById('loginScreen');
+      const mainContent = document.getElementById('mainContent');
+      const formLogin = document.getElementById('formLogin');
+      const loginError = document.getElementById('loginError');
+      const btnSignOut = document.getElementById('btnSignOut');
+
+      // Verificar sesión al cargar
+      async function checkSession() {
+        const {  session } = await supabaseClient.auth.getSession();
+        
+        if (session) {
+          loginScreen.style.display = 'none';
+          mainContent.style.display = 'block';
+        } else {
+          loginScreen.style.display = 'flex';
+        }
       }
-    }
 
-    // Iniciar sesión
-    formLogin.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('loginEmail').value;
-      const password = document.getElementById('loginPassword').value;
+      // Iniciar sesión
+      formLogin.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
 
-      loginError.classList.add('hidden');
+        loginError.classList.add('hidden');
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
-      if (error) {
-        loginError.classList.remove('hidden');
-        loginError.textContent = 'Error: ' + error.message;
-      } else {
+        if (error) {
+          loginError.classList.remove('hidden');
+          loginError.textContent = 'Error: ' + error.message;
+        } else {
+          checkSession();
+        }
+      });
+
+      // Cerrar sesión
+      btnSignOut.addEventListener('click', async () => {
+        await supabaseClient.auth.signOut();
         checkSession();
-      }
-    });
+      });
 
-    // Cerrar sesión
-    btnSignOut.addEventListener('click', async () => {
-      await supabase.auth.signOut();
+      // Escuchar cambios de autenticación
+      supabaseClient.auth.onAuthStateChange(() => {
+        setTimeout(checkSession, 500);
+      });
+
+      // Iniciar verificación
       checkSession();
-    });
-
-    // Escuchar cambios de autenticación
-    supabase.auth.onAuthStateChange(() => {
-      setTimeout(checkSession, 500);
-    });
-
-    // Iniciar verificación
-    checkSession();
+    };
+    document.head.appendChild(script);
   </script>
 </body>
 </html>
