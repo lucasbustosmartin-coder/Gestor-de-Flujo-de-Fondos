@@ -6,7 +6,6 @@
   <title>Gestión Empanadas</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -21,9 +20,13 @@
     .btn-export:hover { background: #0d9668; }
     .btn-google { background: #fff; border: 1px solid #ddd; color: #333; }
     .btn-google:hover { background: #f8f8f8; }
+    #debugMsg { position: fixed; top: 10px; right: 10px; background: #000; color: #0f0; padding: 10px; border-radius: 5px; font-size: 14px; z-index: 100; max-width: 300px; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex">
+
+  <!-- Mensaje de depuración -->
+  <div id="debugMsg">Cargando...</div>
 
   <!-- Pantalla de Login -->
   <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
@@ -42,87 +45,77 @@
 
   <!-- Contenido Principal -->
   <div id="mainContent" class="flex-1 ml-20 p-6 hidden">
-    <h1 id="headerTitle" class="text-2xl font-bold text-gray-900">Bienvenido</h1>
-    <p>Si ves esto, la sesión se cargó correctamente.</p>
+    <h1 id="headerTitle" class="text-2xl font-bold text-gray-900">¡Bienvenido!</h1>
+    <button id="btnSignOut" class="mt-4 bg-red-600 text-white px-4 py-2 rounded">Cerrar sesión</button>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // === 🔑 Supabase Client ===
     const SUPABASE_URL = 'https://moeqgzezdraknwmheheu.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZXFnemV6ZHJha253bWhlaGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTY2MDgsImV4cCI6MjA3MDkzMjYwOH0.ZHIJjZv7izlaegfeypj8s6jNb0ls-LTrt914qhgO_uA';
+    const supabase = window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Cargar Supabase
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    document.head.appendChild(script);
+    const loginScreen = document.getElementById('loginScreen');
+    const mainContent = document.getElementById('mainContent');
+    const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+    const btnSignOut = document.getElementById('btnSignOut');
+    const loginError = document.getElementById('loginError');
+    const debugMsg = document.getElementById('debugMsg');
 
-    script.onload = async () => {
-      const { createClient } = supabase;
-      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-      // Elementos
-      const loginScreen = document.getElementById('loginScreen');
-      const mainContent = document.getElementById('mainContent');
-      const btnGoogleLogin = document.getElementById('btnGoogleLogin');
-      const loginError = document.getElementById('loginError');
-
-      // Función para cargar datos de usuario
-      async function iniciarApp(session) {
-        const {  userData } = await supabaseClient
+    async function checkSession() {
+      debugMsg.textContent = 'Verificando sesión...';
+      const {  session } = await supabase.auth.getSession();
+      
+      if (session) {
+        debugMsg.textContent = 'Sesión encontrada, verificando usuario...';
+        const {  userData } = await supabase
           .from('usuarios')
           .select('*')
           .eq('email', session.user.email)
           .single();
 
         if (userData) {
+          debugMsg.textContent = `¡Listo! Rol: ${userData.rol}`;
           loginScreen.style.display = 'none';
-          mainContent.classList.remove('hidden');
-          document.getElementById('headerTitle').textContent = `Hola ${userData.rol}`;
-          console.log('Usuario autorizado:', userData);
+          mainContent.style.display = 'block';
         } else {
+          debugMsg.textContent = 'No autorizado';
           loginError.classList.remove('hidden');
           loginError.textContent = 'No tienes acceso. Contacta al admin.';
-          await supabaseClient.auth.signOut();
+          await supabase.auth.signOut();
         }
-      }
-
-      // Verificar sesión
-      const {  session } = await supabaseClient.auth.getSession();
-      console.log('Sesión inicial:', session);
-
-      if (session) {
-        await iniciarApp(session);
       } else {
-        loginScreen.style.display = 'flex';
+        debugMsg.textContent = 'Sin sesión';
       }
+    }
 
-      // Escuchar cambios de autenticación
-      supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        console.log('Evento de autenticación:', event, session);
-        if (event === 'SIGNED_IN' && session) {
-          await iniciarApp(session);
-        }
-        if (event === 'SIGNED_OUT') {
-          loginScreen.style.display = 'flex';
-          mainContent.classList.add('hidden');
+    btnGoogleLogin.addEventListener('click', async () => {
+      debugMsg.textContent = 'Iniciando con Google...';
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'https://lucasbustosmartin-coder.github.io/Gestor-de-Flujo-de-Fondos/'
         }
       });
+      if (error) {
+        debugMsg.textContent = 'Error: ' + error.message;
+        loginError.classList.remove('hidden');
+        loginError.textContent = error.message;
+      }
+    });
 
-      // Login con Google
-      btnGoogleLogin.addEventListener('click', async () => {
-        loginError.classList.add('hidden');
-        const { error } = await supabaseClient.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: 'https://lucasbustosmartin-coder.github.io/Gestor-de-Flujo-de-Fondos/'
-          }
-        });
-        if (error) {
-          loginError.classList.remove('hidden');
-          loginError.textContent = 'Error: ' + error.message;
-        }
-      });
-    };
+    btnSignOut.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      location.reload();
+    });
+
+    // Escuchar cambios de autenticación
+    supabase.auth.onAuthStateChange(() => {
+      setTimeout(checkSession, 1000);
+    });
+
+    // Iniciar verificación
+    checkSession();
   </script>
 </body>
 </html>
