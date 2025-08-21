@@ -6,6 +6,7 @@
   <title>Gestión Empanadas</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -26,7 +27,7 @@
 <body class="bg-gray-50 min-h-screen flex">
 
   <!-- Mensaje de depuración -->
-  <div id="debugMsg">Cargando...</div>
+  <div id="debugMsg">Cargando Supabase...</div>
 
   <!-- Pantalla de Login -->
   <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
@@ -49,73 +50,83 @@
     <button id="btnSignOut" class="mt-4 bg-red-600 text-white px-4 py-2 rounded">Cerrar sesión</button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Cargar Supabase JS -->
   <script>
+    // === 🔑 Cargar Supabase y esperar a que esté listo ===
     const SUPABASE_URL = 'https://moeqgzezdraknwmheheu.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vZXFnemV6ZHJha253bWhlaGV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzNTY2MDgsImV4cCI6MjA3MDkzMjYwOH0.ZHIJjZv7izlaegfeypj8s6jNb0ls-LTrt914qhgO_uA';
-    const supabase = window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const loginScreen = document.getElementById('loginScreen');
-    const mainContent = document.getElementById('mainContent');
-    const btnGoogleLogin = document.getElementById('btnGoogleLogin');
-    const btnSignOut = document.getElementById('btnSignOut');
-    const loginError = document.getElementById('loginError');
-    const debugMsg = document.getElementById('debugMsg');
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.onload = () => {
+      const { createClient } = supabase;
+      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+      window.supabaseClient = supabaseClient;
+      iniciarApp();
+    };
+    document.head.appendChild(script);
 
-    async function checkSession() {
-      debugMsg.textContent = 'Verificando sesión...';
-      const {  session } = await supabase.auth.getSession();
-      
-      if (session) {
-        debugMsg.textContent = 'Sesión encontrada, verificando usuario...';
-        const {  userData } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('email', session.user.email)
-          .single();
+    function iniciarApp() {
+      const loginScreen = document.getElementById('loginScreen');
+      const mainContent = document.getElementById('mainContent');
+      const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+      const btnSignOut = document.getElementById('btnSignOut');
+      const loginError = document.getElementById('loginError');
+      const debugMsg = document.getElementById('debugMsg');
 
-        if (userData) {
-          debugMsg.textContent = `¡Listo! Rol: ${userData.rol}`;
-          loginScreen.style.display = 'none';
-          mainContent.style.display = 'block';
+      async function checkSession() {
+        debugMsg.textContent = 'Verificando sesión...';
+        const {  session } = await supabaseClient.auth.getSession();
+        
+        if (session) {
+          debugMsg.textContent = 'Sesión encontrada, verificando usuario...';
+          const {  userData } = await supabaseClient
+            .from('usuarios')
+            .select('*')
+            .eq('email', session.user.email)
+            .single();
+
+          if (userData) {
+            debugMsg.textContent = `¡Listo! Rol: ${userData.rol}`;
+            loginScreen.style.display = 'none';
+            mainContent.style.display = 'block';
+          } else {
+            debugMsg.textContent = 'No autorizado';
+            loginError.classList.remove('hidden');
+            loginError.textContent = 'No tienes acceso. Contacta al admin.';
+            await supabaseClient.auth.signOut();
+          }
         } else {
-          debugMsg.textContent = 'No autorizado';
-          loginError.classList.remove('hidden');
-          loginError.textContent = 'No tienes acceso. Contacta al admin.';
-          await supabase.auth.signOut();
+          debugMsg.textContent = 'Sin sesión';
         }
-      } else {
-        debugMsg.textContent = 'Sin sesión';
       }
-    }
 
-    btnGoogleLogin.addEventListener('click', async () => {
-      debugMsg.textContent = 'Iniciando con Google...';
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'https://lucasbustosmartin-coder.github.io/Gestor-de-Flujo-de-Fondos/'
+      btnGoogleLogin.addEventListener('click', async () => {
+        debugMsg.textContent = 'Iniciando con Google...';
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: 'https://lucasbustosmartin-coder.github.io/Gestor-de-Flujo-de-Fondos/'
+          }
+        });
+        if (error) {
+          debugMsg.textContent = 'Error: ' + error.message;
+          loginError.classList.remove('hidden');
+          loginError.textContent = error.message;
         }
       });
-      if (error) {
-        debugMsg.textContent = 'Error: ' + error.message;
-        loginError.classList.remove('hidden');
-        loginError.textContent = error.message;
-      }
-    });
 
-    btnSignOut.addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      location.reload();
-    });
+      btnSignOut.addEventListener('click', async () => {
+        await supabaseClient.auth.signOut();
+        location.reload();
+      });
 
-    // Escuchar cambios de autenticación
-    supabase.auth.onAuthStateChange(() => {
-      setTimeout(checkSession, 1000);
-    });
+      supabaseClient.auth.onAuthStateChange(() => {
+        setTimeout(checkSession, 1000);
+      });
 
-    // Iniciar verificación
-    checkSession();
+      checkSession();
+    }
   </script>
 </body>
 </html>
