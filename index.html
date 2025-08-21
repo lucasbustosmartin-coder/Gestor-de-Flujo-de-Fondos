@@ -37,7 +37,7 @@
 <body class="bg-gray-50 min-h-screen flex">
 
   <!-- BADGE DE VERSIÓN -->
-  <div class="version-badge">v1.0.6</div>
+  <div class="version-badge">v1.0.7</div>
 
   <!-- Pantalla de Login -->
   <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
@@ -349,13 +349,14 @@
       const formLogin = document.getElementById('formLogin');
       const loginError = document.getElementById('loginError');
 
-      // === 🔐 Verificar sesión con manejo robusto ===
+      // === 🔐 Verificar sesión con manejo correcto ===
       const verificarSesion = async () => {
         try {
-          const {  session, error: authError } = await supabaseClient.auth.getSession();
+          // ✅ Uso correcto de await
+          const {  data: { session }, error: authError } = await supabaseClient.auth.getSession();
           
           if (authError) {
-            console.error('Error de autenticación:', authError);
+            console.error('❌ Error de autenticación:', authError);
             loginError.classList.remove('hidden');
             loginError.textContent = 'Error de autenticación.';
             loginScreen.style.display = 'flex';
@@ -367,10 +368,9 @@
             return;
           }
 
-          // Normalizar email para comparación
           const emailAuth = session.user.email.toLowerCase().trim();
 
-          // Buscar en tabla `usuarios` con comparación insensible
+          // ✅ Uso de ilike para comparación insensible
           const {  data: userData, error: userError } = await supabaseClient
             .from('usuarios')
             .select('*')
@@ -378,7 +378,7 @@
             .single();
 
           if (userError || !userData) {
-            console.log('Usuario no encontrado en tabla `usuarios`:', emailAuth);
+            console.log('❌ Usuario no encontrado en tabla `usuarios`:', emailAuth);
             loginError.classList.remove('hidden');
             loginError.textContent = 'Usuario no autorizado. Contacta al admin.';
             await supabaseClient.auth.signOut();
@@ -391,7 +391,7 @@
           loginScreen.style.display = 'none';
           await cargarDatos();
         } catch (err) {
-          console.error('Error crítico:', err);
+          console.error('🚨 Error crítico:', err);
           loginError.classList.remove('hidden');
           loginError.textContent = 'Error interno. Recarga la página.';
           loginScreen.style.display = 'flex';
@@ -428,7 +428,7 @@
         }
 
         // Verificar usuario en tabla
-        const {  userData, error: userError } = await supabaseClient
+        const {  data: userData, error: userError } = await supabaseClient
           .from('usuarios')
           .select('*')
           .ilike('email', email)
@@ -451,7 +451,7 @@
         try {
           if (!state.usuario) throw new Error('No autorizado');
 
-          const [{  config }, {  sucursales }, {  tipos_gasto }, {  productos }, {  medios }, {  transacciones }] = await Promise.all([
+          const [{  data: config }, {  data: sucursales }, {  data: tipos_gasto }, {  data: productos }, {  data: medios }, {  data: transacciones }] = await Promise.all([
             supabaseClient.from('config').select('*').eq('id', 1),
             supabaseClient.from('sucursales').select('*'),
             supabaseClient.from('tipos_gasto').select('*'),
